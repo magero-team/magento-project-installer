@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+# This file is part of the Magento Project Installer.
+#
+# (c) Magero team <support@magero.pw>
+#
+# For the full copyright and license information, please view the LICENSE
+# file that was distributed with this source code.
+
+source /lib/lsb/init-functions
+source $(readlink -f $(dirname $(readlink -f $0)))/config
+
+if [ ! -d ${MAGENTO_PATH} ];
+then
+    log_failure_msg "It seems Magento is not installed"
+    exit 1;
+fi
+
+source ${CONFIGS_PATH}/global.conf
+if [ -f ${CONFIGS_PATH}/local.conf ];
+then
+    source ${CONFIGS_PATH}/local.conf
+fi
+
+DEFAULT_DB_HOST=localhost
+if [ -z "${DB_HOST}" ]; then
+    DB_HOST=${DEFAULT_DB_HOST}
+fi
+
+if [ -z "${DB_USER}" ]; then
+    printf "Please enter database username:"
+    read DB_USER
+    if [ -z "${DB_USER}" ]; then
+        log_failure_msg "Database username is required"
+        exit 1;
+    fi
+fi
+
+if [ -z "${DB_PASSWORD}" ]; then
+    printf "Please enter database password:"
+    read DB_PASSWORD
+    if [ -z "${DB_PASSWORD}" ]; then
+        log_failure_msg "Database password is required"
+        exit 1;
+    fi
+fi
+
+if [ -z "${DB_NAME}" ]; then
+    printf "Please enter database name:"
+    read DB_NAME
+    if [ -z "${DB_NAME}" ]; then
+        log_failure_msg "Database name is required"
+        exit 1;
+    fi
+fi
+
+mysql -u${DB_USER} -p${DB_PASSWORD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
+if [ "$?" -ne "0" ]; then
+    log_failure_msg "Magento database can not be dropped"
+    exit 1
+fi
+
+rm -rf ${MAGENTO_PATH}
+if [ "$?" -ne "0" ]; then
+    log_failure_msg "Magento directory can not be removed"
+    exit 1
+fi
+rm -rf ${CONFIGS_PATH}/env
+if [ "$?" -ne "0" ]; then
+    log_failure_msg "Configs directory can not be removed"
+    exit 1
+fi
+
+log_success_msg "Magento has been uninstalled successfully"

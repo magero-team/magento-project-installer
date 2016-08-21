@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# This file is part of the Magento Project Installer.
+#
+# (c) Magero team <support@magero.pw>
+#
+# For the full copyright and license information, please view the LICENSE
+# file that was distributed with this source code.
+
+source /lib/lsb/init-functions
+source $(readlink -f $(dirname $(readlink -f $0)))/config
+
+${PACKAGE_PATH}/bin/uninstall-magento
+${PACKAGE_PATH}/bin/install-magento
