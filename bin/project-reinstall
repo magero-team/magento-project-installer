@@ -10,5 +10,5 @@
 source /lib/lsb/init-functions
 source $(readlink -f $(dirname $(readlink -f $0)))/config
 
-${PACKAGE_PATH}/bin/uninstall-magento
-${PACKAGE_PATH}/bin/install-magento
+${PACKAGE_PATH}/bin/project-uninstall
+${PACKAGE_PATH}/bin/project-install
