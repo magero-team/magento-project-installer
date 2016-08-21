@@ -14,5 +14,13 @@
     ],
     "bin": [
         "bin/installer"
-    ]
+    ],
+    "scripts": {
+        "post-package-install": [
+            "chmod +x bin/project-install bin/project-uninstall bin/project-reinstall"
+        ],
+        "post-package-update": [
+            "chmod +x bin/project-install bin/project-uninstall bin/project-reinstall"
+        ]
+    }
 }
