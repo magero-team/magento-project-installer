@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+
+# This file is part of the Magento Project Installer.
+#
+# (c) Magero team <support@magero.pw>
+#
+# For the full copyright and license information, please view the LICENSE
+# file that was distributed with this source code.
+
+source /lib/lsb/init-functions
+source $(readlink -f $(dirname $(readlink -f $0)))/config
+
+if [ ! -f ${ROOT_PATH}/magento.tar.gz ];
+then
+    log_failure_msg "Magento sources file not found"
+    log_warning_msg "You should put Magento sources in file '${ROOT_PATH}/magento.tar.gz'"
+    exit 1;
+fi
+if [ -d ${MAGENTO_PATH} ];
+then
+    log_failure_msg "It seems Magento already installed"
+    exit 1;
+fi
+
+source ${CONFIGS_PATH}/global.conf
+if [ -f ${CONFIGS_PATH}/local.conf ];
+then
+    source ${CONFIGS_PATH}/local.conf
+fi
+
+if [ -z "${DB_HOST}" ]; then
+    DB_HOST=localhost
+fi
+
+if [ -z "${DB_USER}" ]; then
+    printf "Please enter database username:"
+    read DB_USER
+    if [ -z "${DB_USER}" ]; then
+        log_failure_msg "Database username is required"
+        exit 1;
+    fi
+fi
+
+if [ -z "${DB_PASSWORD}" ]; then
+    printf "Please enter database password:"
+    read DB_PASSWORD
+    if [ -z "${DB_PASSWORD}" ]; then
+        log_failure_msg "Database password is required"
+        exit 1;
+    fi
+fi
+
+if [ -z "${DB_NAME}" ]; then
+    printf "Please enter database name:"
+    read DB_NAME
+    if [ -z "${DB_NAME}" ]; then
+        log_failure_msg "Database name is required"
+        exit 1;
+    fi
+fi
+
+if [ -z "${DOMAIN}" ]; then
+    printf "Please enter domain:"
+    read DOMAIN
+    if [ -z "${DOMAIN}" ]; then
+        log_failure_msg "Domain is required"
+        exit 1;
+    fi
+fi
+
+mysql -u${DB_USER} -p${DB_PASSWORD} -e "CREATE DATABASE ${DB_NAME} CHARACTER SET utf8 COLLATE utf8_general_ci;"
+if [ "$?" -ne "0" ]; then
+    log_failure_msg "Magento database can not be created"
+    exit 1
+fi
+
+echo "Unpacking Magento sources files"
+mkdir -p ${MAGENTO_PATH}
+tar -zxf ${ROOT_PATH}/magento.tar.gz -C ${ROOT_PATH}
+if [ "$?" -ne "0" ]; then
+    rm -rf ${MAGENTO_PATH}
+    mysql -u${DB_USER} -p${DB_PASSWORD} -e "DROP DATABASE ${DB_NAME};"
+    log_failure_msg "Magento sources files unpacking failed"
+    exit 1
+fi
+
+cd ${MAGENTO_PATH}
+find . -type d -exec chmod 770 {} \;
+find . -type f -exec chmod 660 {} \;
+chmod +x cron.sh mage
+
+if [ ! -z "${FILES_OWNER_USER}" ]; then
+    if [ ! -z "${FILES_OWNER_GROUP}" ]; then
+        sudo chown -R ${FILES_OWNER_USER}:${FILES_OWNER_GROUP} .
+    else
+        sudo chown -R ${FILES_OWNER_USER} .
+    fi
+fi
+
+if [ -z "${LOCALE}" ]; then
+    LOCALE="en_GB"
+fi
+
+if [ -z "${TIMEZONE}" ]; then
+    TIMEZONE="Europe/London"
+fi
+
+if [ -z "${CURRENCY}" ]; then
+    CURRENCY="GBP"
+fi
+
+if [ -z "${ADMIN_EMAIL}" ]; then
+    ADMIN_EMAIL="admin@example.com"
+fi
+
+if [ -z "${ADMIN_USERNAME}" ]; then
+    ADMIN_USERNAME="admin"
+fi
+
+if [ -z "${ADMIN_PASSWORD}" ]; then
+    ADMIN_PASSWORD="Admin123"
+fi
+
+echo "Installing Magento instance"
+php -f install.php -- \
+  --license_agreement_accepted "yes" \
+  --locale "${LOCALE}" \
+  --timezone "${TIMEZONE}" \
+  --default_currency "${CURRENCY}" \
+  --db_host "${DB_HOST}" \
+  --db_name "${DB_NAME}" \
+  --db_user "${DB_USER}" \
+  --db_pass "${DB_PASSWORD}" \
+  --session_save "db" \
+  --url "${DOMAIN}" \
+  --skip_url_validation "yes" \
+  --use_rewrites "yes" \
+  --use_secure "no" \
+  --secure_base_url "" \
+  --use_secure_admin "no" \
+  --admin_firstname "John" \
+  --admin_lastname "Doe" \
+  --admin_email "${ADMIN_EMAIL}" \
+  --admin_username "${ADMIN_USERNAME}" \
+  --admin_password "${ADMIN_PASSWORD}"
+
+if [ "$?" -ne "0" ]; then
+    rm -rf ${MAGENTO_PATH}
+    mysql -u${DB_USER} -p${DB_PASSWORD} -e "DROP DATABASE ${DB_NAME};"
+    log_failure_msg "Magento instance installing failed"
+    exit 1
+fi
+
+CURRENT_USER=$(whoami)
+
+rm -rf ${CONFIGS_PATH}/env
+mkdir -p ${CONFIGS_PATH}/env/etc/apache2/sites-available/
+cp ${PACKAGE_PATH}/env/etc/apache2/sites-available/magento.conf ${CONFIGS_PATH}/env/etc/apache2/sites-available/${DOMAIN}.conf
+cp ${PACKAGE_PATH}/env/etc/hosts ${CONFIGS_PATH}/env/etc/hosts
+mkdir -p ${CONFIGS_PATH}/env/etc/cron.d/
+CRON_FILE=${CONFIGS_PATH}/env/etc/cron.d/${DOMAIN//./_}
+cp ${PACKAGE_PATH}/env/etc/cron.d/magento ${CRON_FILE}
+
+perl -pi -e "s,#domain#,${DOMAIN},g" ${CONFIGS_PATH}/env/etc/apache2/sites-available/${DOMAIN}.conf ${CONFIGS_PATH}/env/etc/hosts
+perl -pi -e "s,#documentroot#,${MAGENTO_PATH},g" ${CONFIGS_PATH}/env/etc/apache2/sites-available/${DOMAIN}.conf ${CRON_FILE}
+perl -pi -e "s,#user#,${CURRENT_USER},g" ${CRON_FILE}
+
+log_success_msg "Magento instance has been installed successfully"
