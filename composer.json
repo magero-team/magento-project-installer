@@ -13,9 +13,8 @@
         }
     ],
     "bin": [
-        "bin/installer",
-        "bin/project-install",
-        "bin/project-uninstall",
-        "bin/project-reinstall"
+        "bin/install-magento",
+        "bin/uninstall-magento",
+        "bin/reinstall-magento"
     ]
 }

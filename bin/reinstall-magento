@@ -10,5 +10,14 @@
 source /lib/lsb/init-functions
 source $(readlink -f $(dirname $(readlink -f $0)))/config
 
-${PACKAGE_PATH}/bin/project-uninstall
-${PACKAGE_PATH}/bin/project-install
+${PACKAGE_PATH}/bin/uninstall-magento
+if [ "$?" -ne "0" ]; then
+    log_failure_msg "Magento uninstalling failed"
+    exit 1
+fi
+
+${PACKAGE_PATH}/bin/install-magento
+if [ "$?" -ne "0" ]; then
+    log_failure_msg "Magento installing failed"
+    exit 1
+fi
