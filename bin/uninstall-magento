@@ -54,7 +54,7 @@ if [ -z "${DB_NAME}" ]; then
     fi
 fi
 
-mysql -u${DB_USER} -p${DB_PASSWORD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
+mysql -u${DB_USER} -p${DB_PASSWORD} -h${DB_HOST} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
 if [ "$?" -ne "0" ]; then
     log_failure_msg "Magento database can not be dropped"
     exit 1
